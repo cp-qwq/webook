@@ -7,7 +7,9 @@ import (
 	regexp "github.com/dlclark/regexp2"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 	"net/http"
+	"time"
 )
 
 type UserHandler struct {
@@ -16,6 +18,12 @@ type UserHandler struct {
 	passwordExp *regexp.Regexp
 }
 
+type UserClaims struct {
+	jwt.RegisteredClaims
+	//声明自己要放的数据
+	Uid int64
+	UserAgent string
+}
 func NewUserHandler(svc *service.UserService) *UserHandler {
 	const (
 		emailRegexPattern = "^\\w+([-+.]\\w+)*@\\w+([-.]\\w+)*\\.\\w+([-.]\\w+)*$"
@@ -85,6 +93,47 @@ func (u *UserHandler) SignUp(ctx *gin.Context) {
 	}
 	ctx.String(http.StatusOK, "注册成功")
 }
+func (u *UserHandler) LoginJWT(ctx *gin.Context) {
+	type LoginReq struct {
+		Email string `json:"email"`
+		Password string `json:"password"`
+	}
+
+	var req LoginReq
+	if err := ctx.Bind(&req); err != nil {
+		return
+	}
+	user, err := u.svc.Login(ctx, req.Email, req.Password)
+	if errors.Is(err, service.ErrInvalidUserOrPassword) {
+		ctx.String(http.StatusOK, "用户名或密码错误")
+		return
+	}
+
+	if err != nil {
+		ctx.String(http.StatusOK, "系统错误")
+		return
+	}
+
+	//用 JWT 设置登录态
+
+	claims := UserClaims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute)),
+		},
+		Uid : user.Id,
+		UserAgent: ctx.Request.UserAgent(),
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodES256, claims)
+	tokenStr, err := token.SignedString([]byte("HRx0ToImlZtakubRzKfJ2NCSNGdRik6z"))
+	if err != nil {
+		ctx.String(http.StatusInternalServerError, "系统错误")
+		return
+	}
+	ctx.Header("x-jwt-token", tokenStr)
+	ctx.String(http.StatusOK, "登录成功")
+	return
+}
 func (u *UserHandler) Login(ctx *gin.Context)   {
 	type LoginReq struct {
 		Email string `json:"email"`
@@ -126,7 +175,8 @@ func (u *UserHandler) Profile(ctx *gin.Context) {}
 func (u *UserHandler) RegisterRoutes(server *gin.Engine) {
 	ug := server.Group("/users")
 	ug.POST("/signup", u.SignUp)
-	ug.POST("/login", u.Login)
+	ug.POST("/login", u.LoginJWT)
+	//ug.POST("/login", u.Login)
 	ug.POST("/edit", u.Edit)
 	ug.GET("/profile", u.Profile)
 }
