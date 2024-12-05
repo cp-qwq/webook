@@ -11,7 +11,7 @@ import (
 	"net/http"
 	"time"
 )
-
+var JWTKey = []byte("k6CswdUm77WKcbM68UQUuxVsHSpTCwgK")
 type UserHandler struct {
 	svc         *service.UserService
 	emailExp    *regexp.Regexp
@@ -118,16 +118,16 @@ func (u *UserHandler) LoginJWT(ctx *gin.Context) {
 
 	claims := UserClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute * 30)),
 		},
 		Uid : user.Id,
 		UserAgent: ctx.Request.UserAgent(),
 	}
 
-	token := jwt.NewWithClaims(jwt.SigningMethodES256, claims)
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenStr, err := token.SignedString([]byte("HRx0ToImlZtakubRzKfJ2NCSNGdRik6z"))
 	if err != nil {
-		ctx.String(http.StatusInternalServerError, "系统错误")
+		ctx.String(http.StatusInternalServerError, err.Error())
 		return
 	}
 	ctx.Header("x-jwt-token", tokenStr)

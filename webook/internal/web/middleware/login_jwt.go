@@ -19,7 +19,7 @@ func NewLoginJWTMiddlewareBuilder() *LoginJWTMiddlewareBuilder {
 	return &LoginJWTMiddlewareBuilder{}
 }
 
-func (l *LoginJWTMiddlewareBuilder) Build() gin.HandlerFunc  {
+func (l *LoginJWTMiddlewareBuilder) CheckLogin() gin.HandlerFunc  {
 	//用 go 的方式编码解码
 	gob.Register(time.Now())
 	return func(ctx *gin.Context) {

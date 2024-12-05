@@ -3,6 +3,7 @@ package service
 import (
 	"basic-go/webook/internal/domain"
 	"basic-go/webook/internal/repository"
+	"basic-go/webook/internal/repository/cache"
 	"context"
 	"errors"
 	"golang.org/x/crypto/bcrypt"
@@ -46,4 +47,13 @@ func (svc *UserService) SignUp(ctx context.Context, u domain.User) error {
 	u.Password = string(hash)
 	//存起来
 	return svc.repo.Create(ctx, u)
+}
+func (svc *UserService) Profile(ctx context.Context, id int64) (domain.User, error)  {
+	u, err := svc.repo.FindById(ctx, id)
+
+	// 没有这个数据
+	if err == cache.ErrKeyNotExist {
+		return domain.User{}, err
+	}
+	return u, nil
 }
